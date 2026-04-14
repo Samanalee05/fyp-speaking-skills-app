@@ -23,7 +23,7 @@ F_MIN        = 20
 F_MAX        = 7600
 
 DEVICE     = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "best_spoof_cnn_v4.pth"
+MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "best_spoof_cnn_v5.pth"
 
 _FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 
@@ -178,8 +178,15 @@ def predict_file(path_to_audio: str) -> dict:
     logits = _model(x)
     probs  = torch.softmax(logits, dim=1)[0].cpu().numpy()
 
+    bonafide_prob = float(probs[0])
+    spoof_prob = float(probs[1])
+
+    SPOOF_THRESHOLD = 0.75
+
+    pred_label = "spoof" if spoof_prob >= SPOOF_THRESHOLD else "bonafide"
+
     return {
-        "pred_label":         "spoof" if int(np.argmax(probs)) == 1 else "bonafide",
-        "spoof_probability":  float(probs[1]),
-        "bonafide_probability": float(probs[0]),
+        "pred_label": pred_label,
+        "spoof_probability": spoof_prob,
+        "bonafide_probability": bonafide_prob,
     }
