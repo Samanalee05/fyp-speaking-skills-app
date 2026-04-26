@@ -47,21 +47,21 @@ FEATURE_COLS = [
 MODES = {
     "academic": {
         "pauses_per_min_few":      2,
-        "pauses_per_min_good":     10,
-        "pauses_per_min_moderate": 16,
-        "avg_pause_short":         0.4,
-        "avg_pause_moderate":      0.7,
+        "pauses_per_min_good":     14,
+        "pauses_per_min_moderate": 24,
+        "avg_pause_short":         0.5,
+        "avg_pause_moderate":      0.9,
         "hesitation_good":         0.20,
-        "hesitation_moderate":     0.32,
+        "hesitation_moderate":     0.40,
     },
     "public_speaking": {
         "pauses_per_min_few":      2,
-        "pauses_per_min_good":     14,
-        "pauses_per_min_moderate": 20,
-        "avg_pause_short":         0.6,
-        "avg_pause_moderate":      1.0,
-        "hesitation_good":         0.28,
-        "hesitation_moderate":     0.40,
+        "pauses_per_min_good":     18,
+        "pauses_per_min_moderate": 30,
+        "avg_pause_short":         0.7,
+        "avg_pause_moderate":      1.2,
+        "hesitation_good":         0.32,
+        "hesitation_moderate":     0.48,
     },
 }
 DEFAULT_MODE = "academic"
@@ -251,15 +251,23 @@ def _score_fluency(features: dict, thresholds: dict) -> tuple:
     pause_count      = features["pause_count"]
     avg_pause        = features["avg_pause_duration_sec"]
     hesitation_ratio = features["hesitation_ratio"]
+    speaking_rate    = features.get("syllable_rate_per_min", 0.0)
     t                = thresholds
 
     duration_minutes  = total_dur / 60.0
     pauses_per_minute = pause_count / duration_minutes if duration_minutes > 0 else 0
 
-    if pauses_per_minute < t["pauses_per_min_few"]:
+    # 1) Pause frequency
+    if pauses_per_minute < 1:
         score += 1
-        feedback.append("Your delivery has very few pauses, which can sound rushed or robotic. "
-                        "Natural pauses help listeners follow along.")
+        feedback.append(
+            "Very few pauses were detected. This can make speech sound rushed or unnatural."
+        )
+    elif pauses_per_minute < t["pauses_per_min_few"]:
+        score += 2
+        feedback.append(
+            "You use relatively few pauses. Adding more phrasing may improve clarity."
+        )
     elif pauses_per_minute <= t["pauses_per_min_good"]:
         score += 3
         feedback.append("Your use of pauses is natural and well-paced.")
@@ -268,34 +276,58 @@ def _score_fluency(features: dict, thresholds: dict) -> tuple:
         feedback.append("Your pauses are noticeable but still within a moderate range.")
     else:
         score += 1
-        feedback.append("You pause quite frequently, which may reduce fluency. "
-                        "Try to keep your thoughts more connected.")
+        feedback.append(
+            "You pause quite frequently, which may reduce fluency. Try to keep your thoughts more connected."
+        )
 
+    # 2) Average pause duration
     if avg_pause == 0.0:
-        score += 1
-        feedback.append("No distinct pauses were detected. Natural pausing improves clarity and delivery.")
+        score += 2
+        feedback.append(
+            "No longer pauses were detected. This may sound slightly rushed if the speech lacks phrasing."
+        )
     elif avg_pause <= t["avg_pause_short"]:
         score += 3
         feedback.append("Your pauses are mostly short and natural.")
     elif avg_pause <= t["avg_pause_moderate"]:
         score += 2
-        feedback.append("Some of your pauses are slightly long — aim to keep them concise.")
+        feedback.append("Some pauses are slightly long, but they do not strongly disrupt the delivery.")
     else:
         score += 1
-        feedback.append("Your pauses are often quite long, which may disrupt the flow of your delivery.")
+        feedback.append("Some pauses are quite long and may disrupt the flow of your delivery.")
 
+    # 3) Hesitation / silence ratio
     if hesitation_ratio <= t["hesitation_good"]:
         score += 3
-        feedback.append("Your speech flow is smooth and well-timed.")
+        feedback.append("Your speech flow is generally smooth.")
     elif hesitation_ratio <= t["hesitation_moderate"]:
         score += 2
-        feedback.append("There is a moderate amount of silence in your delivery.")
+        feedback.append("There is a moderate amount of silence or hesitation in your delivery.")
     else:
         score += 1
-        feedback.append("A large portion of your delivery contains silence or hesitation. "
-                        "Practising with a script or outline may help.")
+        feedback.append(
+            "A large portion of your delivery contains silence or hesitation. Practising with a short outline may help."
+        )
 
-    return score / 3.0, feedback
+    # 4) Speaking rate
+    # Approximate syllables per minute, not exact words per minute.
+    if speaking_rate < 90:
+        score += 1
+        feedback.append("Your speaking rate is quite slow, which may reduce momentum.")
+    elif speaking_rate < 115:
+        score += 2
+        feedback.append("Your speaking rate is slightly slow but still understandable.")
+    elif speaking_rate <= 175:
+        score += 3
+        feedback.append("Your speaking rate is within a comfortable range.")
+    elif speaking_rate <= 200:
+        score += 2
+        feedback.append("Your speaking rate is slightly fast. Slowing down may improve clarity.")
+    else:
+        score += 1
+        feedback.append("Your speaking rate is very fast, which may make the delivery harder to follow.")
+
+    return score / 4.0, feedback
 
 
 def _score_prosody(features: dict) -> tuple:
@@ -307,56 +339,53 @@ def _score_prosody(features: dict) -> tuple:
     jitter      = features.get("jitter", 0.0)
     shimmer     = features.get("shimmer", 0.0)
 
-    if pitch_std >= 60:
+    # Pitch variability
+    if pitch_std >= 80:
         score += 3
         feedback.append("Your pitch variation makes your delivery sound expressive and engaging.")
-    elif pitch_std >= 35:
+    elif pitch_std >= 45:
         score += 2
-        feedback.append("Your pitch variation is moderate — try varying your tone more to emphasise key points.")
+        feedback.append("Your pitch variation is moderate. Varying your tone more could improve emphasis.")
     else:
         score += 1
-        feedback.append("Your speech sounds quite monotone. Try raising and lowering your pitch "
-                        "to make your delivery more engaging.")
+        feedback.append("Your speech sounds quite monotone. Try varying your pitch to sound more engaging.")
 
-    if pitch_range >= 80:
+    # Pitch range
+    if pitch_range >= 240:
         score += 3
         feedback.append("Your pitch range supports an engaging and varied speaking style.")
-    elif pitch_range >= 40:
+    elif pitch_range >= 140:
         score += 2
-        feedback.append("Your pitch range is acceptable but could be broader for more impact.")
+        feedback.append("Your pitch range is acceptable but could be broader for stronger expression.")
     else:
         score += 1
-        feedback.append("Your pitch range is quite narrow. Try to vary your intonation — "
-                        "rise at key moments and drop at conclusions.")
+        feedback.append("Your pitch range is quite narrow. Try using more intonation at key points.")
 
-    if energy_std >= 0.03:
+    # Loudness / energy variation
+    if energy_std >= 0.05:
         score += 3
-        feedback.append("Your loudness variation is good and helps maintain listener engagement.")
-    elif energy_std >= 0.01:
+        feedback.append("Your loudness variation helps maintain listener engagement.")
+    elif energy_std >= 0.02:
         score += 2
-        feedback.append("Your loudness variation is moderate. Emphasising important words more "
-                        "strongly would improve your delivery.")
+        feedback.append("Your loudness variation is moderate. Emphasising important words more would improve your delivery.")
     else:
         score += 1
-        feedback.append("Your voice is quite flat in volume. Try to speak louder on key points "
-                        "and softer in transitions to add expressiveness.")
+        feedback.append("Your voice is quite flat in volume. Try adding more emphasis to key words.")
 
+    # Voice quality feedback only — does not affect score directly
     if hnr > 0:
         if hnr >= 20:
             feedback.append("Your voice clarity is good — your speech sounds clean and well-projected.")
         elif hnr >= 12:
             feedback.append("Your voice clarity is moderate. Try to project your voice more confidently.")
         else:
-            feedback.append("Your voice sounds somewhat breathy or unclear. "
-                            "Focus on projecting your voice and speaking from your diaphragm.")
+            feedback.append("Your voice sounds somewhat breathy or unclear. Focus on projecting your voice steadily.")
 
     if jitter > 0.02:
-        feedback.append("Some vocal tension was detected. Try to relax your voice — "
-                        "deep breaths before speaking can help.")
+        feedback.append("Some vocal tension was detected. Try to relax your voice before speaking.")
 
     if shimmer > 0.05:
-        feedback.append("Your vocal stability could improve. "
-                        "Consistent breath support will help steady your voice.")
+        feedback.append("Your vocal stability could improve. Consistent breath support may help.")
 
     return score / 3.0, feedback
 
