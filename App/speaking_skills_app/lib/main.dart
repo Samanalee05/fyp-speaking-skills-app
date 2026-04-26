@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
+import 'screens/app_shell.dart';
 
 void main() {
   runApp(const SpeakingSkillsApp());
@@ -21,7 +22,7 @@ class SpeakingSkillsApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Roboto',
       ),
-      home: const HomeScreen(),
+      home: const AppShell(),
     );
   }
 }

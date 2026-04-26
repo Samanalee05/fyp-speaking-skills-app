@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'recording_screen.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  final void Function({String mode}) onStartRecording;
+
+  const HomeScreen({
+    super.key,
+    required this.onStartRecording,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +49,7 @@ class HomeScreen extends StatelessWidget {
                 subtitle: 'Presentations, vivas, seminars',
                 icon: Icons.school_outlined,
                 mode: 'academic',
+                onTap: onStartRecording,
               ),
               const SizedBox(height: 12),
               _ModeCard(
@@ -51,6 +57,7 @@ class HomeScreen extends StatelessWidget {
                 subtitle: 'Speeches, talks, interviews',
                 icon: Icons.mic_outlined,
                 mode: 'public_speaking',
+                onTap: onStartRecording,
               ),
               const Spacer(),
               // Info text
@@ -74,12 +81,14 @@ class _ModeCard extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final String mode;
+  final void Function({String mode}) onTap;
 
   const _ModeCard({
     required this.title,
     required this.subtitle,
     required this.icon,
     required this.mode,
+    required this.onTap,
   });
 
   @override
@@ -89,14 +98,7 @@ class _ModeCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => RecordingScreen(mode: mode),
-            ),
-          );
-        },
+        onTap: () => onTap(mode: mode),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Row(
@@ -114,12 +116,21 @@ class _ModeCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text(subtitle,
-                        style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 13,
+                      ),
+                    ),
                   ],
                 ),
               ),

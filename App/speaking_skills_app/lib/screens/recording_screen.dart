@@ -7,7 +7,15 @@ import 'processing_screen.dart';
 
 class RecordingScreen extends StatefulWidget {
   final String mode;
-  const RecordingScreen({super.key, required this.mode});
+  final bool showBackButton;
+  final ValueChanged<String>? onModeChanged;
+
+  const RecordingScreen({
+    super.key,
+    required this.mode,
+    this.showBackButton = true,
+    this.onModeChanged,
+  });
 
   @override
   State<RecordingScreen> createState() => _RecordingScreenState();
@@ -90,7 +98,7 @@ class _RecordingScreenState extends State<RecordingScreen>
 
   void _submit() {
     if (_recordingPath == null) return;
-    Navigator.pushReplacement(
+    Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ProcessingScreen(
@@ -114,7 +122,7 @@ class _RecordingScreenState extends State<RecordingScreen>
     final path = result.files.single.path!;
 
     if (!mounted) return;
-    Navigator.pushReplacement(
+    Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ProcessingScreen(
@@ -135,7 +143,8 @@ class _RecordingScreenState extends State<RecordingScreen>
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(),
+        leading: widget.showBackButton ? const BackButton() : null,
+        automaticallyImplyLeading: widget.showBackButton,
         title: Text(
           widget.mode == 'academic' ? 'Academic Mode' : 'Public Speaking Mode',
           style: const TextStyle(fontWeight: FontWeight.w600),
