@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'home_screen.dart';
 import 'recording_screen.dart';
+import 'practice_screen.dart';
+import 'history_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -38,16 +40,8 @@ class _AppShellState extends State<AppShell> {
           setState(() => _selectedMode = mode);
         },
       ),
-      const _PlaceholderScreen(
-        title: 'History',
-        icon: Icons.history,
-        message: 'Your saved results will appear here.',
-      ),
-      const _PlaceholderScreen(
-        title: 'Practice',
-        icon: Icons.auto_awesome,
-        message: 'Recommended speaking exercises will appear here.',
-      ),
+      const HistoryScreen(),
+      const PracticeScreen(),
       const _PlaceholderScreen(
         title: 'Profile',
         icon: Icons.person_outline,

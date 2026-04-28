@@ -1,21 +1,134 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 
-class ResultsScreen extends StatelessWidget {
+import '../data/analysis_result.dart';
+import '../data/analysis_result_dao.dart';
+
+class ResultsScreen extends StatefulWidget {
   final Map<String, dynamic> data;
-  const ResultsScreen({super.key, required this.data});
+  final String? audioPath;
+  final String inputType;
+
+  const ResultsScreen({
+    super.key,
+    required this.data,
+    this.audioPath,
+    this.inputType = 'recorded',
+  });
+
+  @override
+  State<ResultsScreen> createState() => _ResultsScreenState();
+}
+
+class _ResultsScreenState extends State<ResultsScreen> {
+  bool _isSaved = false;
+  bool _isSaving = false;
+
+  Map<String, dynamic> get data => widget.data;
+
+  String _scoreToLevelSafe(dynamic scoreValue) {
+    if (scoreValue == null) return 'N/A';
+
+    final score = (scoreValue as num).toDouble();
+    if (score >= 2.67) return 'High';
+    if (score >= 2.0) return 'Medium';
+    return 'Low';
+  }
+
+  Future<void> _saveResult() async {
+    if (_isSaved || _isSaving) return;
+
+    setState(() => _isSaving = true);
+
+    try {
+      final status = data['status'] as String? ?? 'unknown';
+      final isSpoof = status == 'spoof_detected';
+
+      final authenticity =
+          (data['authenticity'] as Map?)?.cast<String, dynamic>() ?? {};
+
+      final delivery = (data['delivery'] as Map?)?.cast<String, dynamic>();
+
+      final assessment = delivery?['assessment'] is Map
+          ? (delivery!['assessment'] as Map).cast<String, dynamic>()
+          : <String, dynamic>{};
+
+      final features = delivery?['features'] is Map
+          ? (delivery!['features'] as Map).cast<String, dynamic>()
+          : <String, dynamic>{};
+
+      final feedback = List<String>.from(data['feedback'] ?? []);
+
+      final result = AnalysisResult(
+        createdAt: DateTime.now().toIso8601String(),
+        mode: assessment['mode'] as String? ?? 'unknown',
+        inputType: widget.inputType,
+        audioPath: widget.audioPath,
+        status: status,
+        authenticityLabel: isSpoof ? 'spoof' : 'bonafide',
+        authenticityConfidence:
+            ((authenticity['confidence'] ?? 0.0) as num).toDouble(),
+        overallLevel: assessment['overall_level'] as String? ?? 'N/A',
+        fluencyLevel: _scoreToLevelSafe(assessment['fluency_score']),
+        expressivenessLevel: _scoreToLevelSafe(assessment['prosody_score']),
+        speechDuration: (features['speech_duration_sec'] as num?)?.toDouble(),
+        speakingRate: (features['syllable_rate_per_min'] as num?)?.toDouble(),
+        pauseCount: features['pause_count'] as int?,
+        feedbackSummary:
+            feedback.isNotEmpty ? feedback.first : 'No feedback available.',
+        rawJson: jsonEncode(data),
+      );
+
+      await AnalysisResultDao().insertResult(result);
+
+      if (!mounted) return;
+
+      setState(() {
+        _isSaved = true;
+        _isSaving = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Result saved to History')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _isSaving = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not save result: $e')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final status = data['status'] as String;
+    final status = data['status'] as String? ?? 'unknown';
     final isSpoof = status == 'spoof_detected';
-    final authenticity = data['authenticity'] as Map<String, dynamic>;
-    final feedback = List<String>.from(data['feedback'] ?? []);
+
+    final authenticity = data['authenticity'] is Map
+        ? Map<String, dynamic>.from(data['authenticity'] as Map)
+        : <String, dynamic>{};
+
+    final feedback = data['feedback'] is List
+        ? List<String>.from(data['feedback'])
+        : <String>[];
 
     Map<String, dynamic>? assessment;
     Map<String, dynamic>? features;
-    if (!isSpoof && data['delivery'] != null) {
-      assessment = data['delivery']['assessment'] as Map<String, dynamic>?;
-      features = data['delivery']['features'] as Map<String, dynamic>?;
+
+    final delivery = data['delivery'];
+    if (!isSpoof && delivery is Map) {
+      final deliveryMap = Map<String, dynamic>.from(delivery);
+
+      if (deliveryMap['assessment'] is Map) {
+        assessment = Map<String, dynamic>.from(deliveryMap['assessment']);
+      }
+
+      if (deliveryMap['features'] is Map) {
+        features = Map<String, dynamic>.from(deliveryMap['features']);
+      }
     }
 
     return Scaffold(
@@ -41,7 +154,7 @@ class ResultsScreen extends StatelessWidget {
           children: [
             _AuthenticityBadge(
               isSpoof: isSpoof,
-              confidence: (authenticity['confidence'] as num).toDouble(),
+              confidence: ((authenticity['confidence'] ?? 0.0) as num).toDouble(),
             ),
             const SizedBox(height: 20),
 
@@ -58,6 +171,32 @@ class ResultsScreen extends StatelessWidget {
               ],
               _FeedbackList(feedback: feedback),
               const SizedBox(height: 20),
+            ],
+
+            if (!isSpoof) ...[
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _isSaving || _isSaved ? null : _saveResult,
+                  icon: Icon(
+                    _isSaved ? Icons.check : Icons.bookmark_add_outlined,
+                  ),
+                  label: Text(
+                    _isSaved
+                        ? 'Saved to History'
+                        : _isSaving
+                            ? 'Saving...'
+                            : 'Save Result',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
             ],
 
             SizedBox(
@@ -564,7 +703,7 @@ class _FeatureChip extends StatelessWidget {
   }
 }
 
-// ── Feedback list ─────────────────────────────────────────────────────────────
+// ── Feedback list ────────────────-────────────────────────────────────────
 
 class _FeedbackList extends StatelessWidget {
   final List<String> feedback;

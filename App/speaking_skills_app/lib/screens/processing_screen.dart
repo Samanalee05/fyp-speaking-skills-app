@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'results_screen.dart';
 
 
-const String _backendBaseUrl = 'http://192.168.8.200:8000';
+const String _backendBaseUrl = 'http://10.34.155.206:8000';
 
 
 class ProcessingScreen extends StatefulWidget {
@@ -25,6 +25,22 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
   void initState() {
     super.initState();
     _runAnalysis();
+  }
+
+  String _guessInputType(String path) {
+    final lower = path.toLowerCase();
+    if (lower.contains('recording_')) {
+      return 'recorded';
+    }
+    return 'uploaded';
+  }
+
+  String guessInputType(String path) {
+    final lower = path.toLowerCase();
+    if (lower.contains('recording_')) {
+      return 'recorded';
+    }
+    return 'uploaded';
   }
 
   Future<void> _runAnalysis() async {
@@ -50,12 +66,18 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
+        debugPrint('STATUS CODE: ${response.statusCode}'); //print for debugging
+        debugPrint('RESPONSE BODY: ${response.body}'); //print fr debugging
         final data = jsonDecode(response.body);
         if (mounted) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (_) => ResultsScreen(data: data),
+              builder: (_) => ResultsScreen(
+                data: data,
+                audioPath: widget.audioPath,
+                inputType: _guessInputType(widget.audioPath),
+              ),
             ),
           );
         }
@@ -74,6 +96,8 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
   }
 
   @override
+
+  
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F8FF),
