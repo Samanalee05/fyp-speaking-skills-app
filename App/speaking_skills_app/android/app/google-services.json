@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "940963736683",
+    "project_id": "my-fyp-project-e84ff",
+    "storage_bucket": "my-fyp-project-e84ff.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:940963736683:android:257b51bb36aff9d46ad52e",
+        "android_client_info": {
+          "package_name": "com.example.speaking_skills_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKA5wFuAbGSTGF2CAAJlUzbaP0r4amfhE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
