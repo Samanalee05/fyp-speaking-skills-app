@@ -35,16 +35,9 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
     return 'uploaded';
   }
 
-  String guessInputType(String path) {
-    final lower = path.toLowerCase();
-    if (lower.contains('recording_')) {
-      return 'recorded';
-    }
-    return 'uploaded';
-  }
-
   Future<void> _runAnalysis() async {
     try {
+      if (!mounted) return;
       setState(() => _statusMessage = 'Checking authenticity...');
 
       final request = http.MultipartRequest(
@@ -58,6 +51,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
         contentType: null,
       ));
 
+      if (!mounted) return;
       setState(() => _statusMessage = 'Analysing delivery...');
 
       final streamedResponse = await request.send().timeout(
@@ -70,6 +64,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
         debugPrint('RESPONSE BODY: ${response.body}'); //print fr debugging
         final data = jsonDecode(response.body);
         if (mounted) {
+          if (!mounted) return;
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -82,12 +77,14 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
           );
         }
       } else {
+        if (!mounted) return;
         setState(() {
           _failed = true;
           _errorMessage = 'Server error: ${response.statusCode}\n${response.body}';
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _failed = true;
         _errorMessage = e.toString();
