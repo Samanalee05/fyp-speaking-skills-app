@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'screens/app_shell.dart';
 import 'package:firebase_core/firebase_core.dart';
+
 import 'firebase_options.dart';
+import 'screens/auth_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +30,7 @@ class SpeakingSkillsApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Roboto',
       ),
-      home: const AppShell(),
+      home: const AuthGate(),
     );
   }
 }

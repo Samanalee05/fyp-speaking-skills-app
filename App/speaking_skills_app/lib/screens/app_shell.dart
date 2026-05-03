@@ -4,6 +4,7 @@ import 'home_screen.dart';
 import 'recording_screen.dart';
 import 'practice_screen.dart';
 import 'history_screen.dart';
+import 'profile_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -42,11 +43,7 @@ class _AppShellState extends State<AppShell> {
       ),
       const HistoryScreen(),
       const PracticeScreen(),
-      const _PlaceholderScreen(
-        title: 'Profile',
-        icon: Icons.person_outline,
-        message: 'Profile settings will appear here.',
-      ),
+      const ProfileScreen(),
     ];
 
     return Scaffold(

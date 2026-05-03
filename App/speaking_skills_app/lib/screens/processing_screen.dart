@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'results_screen.dart';
+import '../services/firestore_service.dart';
 
 
-const String _backendBaseUrl = 'http://10.34.155.206:8000';
+const String _backendBaseUrl = 'http://192.168.8.143:8000';
 
 
 class ProcessingScreen extends StatefulWidget {
@@ -63,19 +64,23 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
         debugPrint('STATUS CODE: ${response.statusCode}'); //print for debugging
         debugPrint('RESPONSE BODY: ${response.body}'); //print fr debugging
         final data = jsonDecode(response.body);
-        if (mounted) {
-          if (!mounted) return;
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ResultsScreen(
-                data: data,
-                audioPath: widget.audioPath,
-                inputType: _guessInputType(widget.audioPath),
-              ),
+        await FirestoreService().saveAnalysisFromResponse(
+          data: Map<String, dynamic>.from(data),
+          mode: widget.mode,
+          inputType: _guessInputType(widget.audioPath),
+          audioPath: widget.audioPath,
+        );
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ResultsScreen(
+              data: data,
+              audioPath: widget.audioPath,
+              inputType: _guessInputType(widget.audioPath),
             ),
-          );
-        }
+          ),
+        );
       } else {
         if (!mounted) return;
         setState(() {
