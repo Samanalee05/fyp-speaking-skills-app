@@ -618,6 +618,18 @@ class _TranscriptAnalysisCard extends StatefulWidget {
 class _TranscriptAnalysisCardState extends State<_TranscriptAnalysisCard> {
   bool _expanded = false;
 
+  String _formatFillerItems(Map<String, dynamic> filler) {
+    final items = filler['items'];
+
+    if (items is! Map || items.isEmpty) {
+      return 'No specific filler words detected.';
+    }
+
+    return items.entries
+        .map((entry) => '${entry.key} × ${entry.value}')
+        .join(', ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final transcript = (widget.analysis['transcript'] ?? '').toString();
@@ -639,9 +651,10 @@ class _TranscriptAnalysisCardState extends State<_TranscriptAnalysisCard> {
         : <String>[];
 
     final fillerTotal = filler['total'] ?? 0;
+    final fillerBreakdown = _formatFillerItems(filler);
     final grammarIssues = grammar['issue_count'] ?? 0;
     final clarityLevel = pronunciation['clarity_level'] ?? 'N/A';
-
+    
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
@@ -660,16 +673,30 @@ class _TranscriptAnalysisCardState extends State<_TranscriptAnalysisCard> {
               runSpacing: 8,
               children: [
                 _MiniTag(label: 'Fillers: $fillerTotal', color: Colors.blue),
-                _MiniTag(
-                  label: 'Grammar notes: $grammarIssues',
-                  color: Colors.purple,
-                ),
-                _MiniTag(
-                  label: 'Clarity: $clarityLevel',
-                  color: Colors.teal,
-                ),
+                _MiniTag(label: 'Grammar notes: $grammarIssues', color: Colors.purple),
+                _MiniTag(label: 'Clarity: $clarityLevel', color: Colors.teal),
               ],
             ),
+
+            const SizedBox(height: 10),
+
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blueGrey.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Detected fillers: $fillerBreakdown',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF334155),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 14),
 
             if (transcriptFeedback.isNotEmpty) ...[
               const SizedBox(height: 14),

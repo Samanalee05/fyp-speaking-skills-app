@@ -102,6 +102,11 @@ class HistoryScreen extends StatelessWidget {
               final feedback =
                   (data['feedbackSummary'] ?? 'No feedback saved.').toString();
 
+              final fillerCount = data['fillerCount'] ?? 0;
+              final grammarIssueCount = data['grammarIssueCount'] ?? 0;
+              final pronunciationLevel =
+                  (data['pronunciationLevel'] ?? 'N/A').toString();
+
               final levelColor = _levelColor(level);
               final modeLabel = _modeLabel(mode);
 
@@ -156,6 +161,9 @@ class HistoryScreen extends StatelessWidget {
                         children: [
                           _Tag(label: modeLabel, color: Colors.blue),
                           _Tag(label: level, color: levelColor),
+                          _Tag(label: 'Fillers: $fillerCount', color: Colors.indigo),
+                          _Tag(label: 'Grammar: $grammarIssueCount', color: Colors.purple),
+                          _Tag(label: 'Clarity: $pronunciationLevel', color: Colors.teal),
                         ],
                       ),
                       const SizedBox(height: 12),
