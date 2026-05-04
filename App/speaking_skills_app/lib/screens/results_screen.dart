@@ -630,6 +630,70 @@ class _TranscriptAnalysisCardState extends State<_TranscriptAnalysisCard> {
         .join(', ');
   }
 
+  Set<String> _fillerWordsSet(Map<String, dynamic> filler) {
+    final items = filler['items'];
+
+    if (items is! Map || items.isEmpty) {
+      return <String>{};
+    }
+
+    return items.keys
+        .map((item) => item.toString().toLowerCase())
+        .toSet();
+  }
+
+  Widget _highlightedTranscript(String transcript, Set<String> fillers) {
+    if (transcript.trim().isEmpty) {
+      return const Text(
+        'Transcript not available.',
+        style: TextStyle(
+          fontSize: 13,
+          color: Color(0xFF64748B),
+        ),
+      );
+    }
+
+    if (fillers.isEmpty) {
+      return Text(
+        transcript,
+        style: const TextStyle(
+          fontSize: 13,
+          height: 1.45,
+          color: Color(0xFF334155),
+        ),
+      );
+    }
+
+    final tokens = RegExp(r"(\w+|[^\w\s]+|\s+)")
+        .allMatches(transcript)
+        .map((match) => match.group(0)!)
+        .toList();
+
+    return RichText(
+      text: TextSpan(
+        children: tokens.map((token) {
+          final cleaned = token.toLowerCase().replaceAll(
+                RegExp(r"[^a-zA-Z']"),
+                '',
+              );
+
+          final isFiller = fillers.contains(cleaned);
+
+          return TextSpan(
+            text: token,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.45,
+              color: isFiller ? const Color(0xFFD97706) : const Color(0xFF334155),
+              fontWeight: isFiller ? FontWeight.w700 : FontWeight.normal,
+              decoration: isFiller ? TextDecoration.underline : TextDecoration.none,
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final transcript = (widget.analysis['transcript'] ?? '').toString();
@@ -652,6 +716,7 @@ class _TranscriptAnalysisCardState extends State<_TranscriptAnalysisCard> {
 
     final fillerTotal = filler['total'] ?? 0;
     final fillerBreakdown = _formatFillerItems(filler);
+    final fillerSet = _fillerWordsSet(filler);
     final grammarIssues = grammar['issue_count'] ?? 0;
     final clarityLevel = pronunciation['clarity_level'] ?? 'N/A';
     
@@ -750,14 +815,7 @@ class _TranscriptAnalysisCardState extends State<_TranscriptAnalysisCard> {
               ),
               if (_expanded) ...[
                 const SizedBox(height: 12),
-                Text(
-                  transcript,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    height: 1.45,
-                    color: Color(0xFF334155),
-                  ),
-                ),
+                _highlightedTranscript(transcript, fillerSet),
               ],
             ],
           ],
