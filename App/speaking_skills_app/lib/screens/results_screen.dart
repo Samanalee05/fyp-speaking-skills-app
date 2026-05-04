@@ -1,8 +1,4 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-
-import '../data/analysis_result.dart';
-import '../data/analysis_result_dao.dart';
 
 class ResultsScreen extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -21,86 +17,7 @@ class ResultsScreen extends StatefulWidget {
 }
 
 class _ResultsScreenState extends State<ResultsScreen> {
-  bool _isSaved = false;
-  bool _isSaving = false;
-
   Map<String, dynamic> get data => widget.data;
-
-  String _scoreToLevelSafe(dynamic scoreValue) {
-    if (scoreValue == null) return 'N/A';
-
-    final score = (scoreValue as num).toDouble();
-    if (score >= 2.67) return 'High';
-    if (score >= 2.0) return 'Medium';
-    return 'Low';
-  }
-
-  Future<void> _saveResult() async {
-    if (_isSaved || _isSaving) return;
-
-    setState(() => _isSaving = true);
-
-    try {
-      final status = data['status'] as String? ?? 'unknown';
-      final isSpoof = status == 'spoof_detected';
-
-      final authenticity =
-          (data['authenticity'] as Map?)?.cast<String, dynamic>() ?? {};
-
-      final delivery = (data['delivery'] as Map?)?.cast<String, dynamic>();
-
-      final assessment = delivery?['assessment'] is Map
-          ? (delivery!['assessment'] as Map).cast<String, dynamic>()
-          : <String, dynamic>{};
-
-      final features = delivery?['features'] is Map
-          ? (delivery!['features'] as Map).cast<String, dynamic>()
-          : <String, dynamic>{};
-
-      final feedback = List<String>.from(data['feedback'] ?? []);
-
-      final result = AnalysisResult(
-        createdAt: DateTime.now().toIso8601String(),
-        mode: assessment['mode'] as String? ?? 'unknown',
-        inputType: widget.inputType,
-        audioPath: widget.audioPath,
-        status: status,
-        authenticityLabel: isSpoof ? 'spoof' : 'bonafide',
-        authenticityConfidence:
-            ((authenticity['confidence'] ?? 0.0) as num).toDouble(),
-        overallLevel: assessment['overall_level'] as String? ?? 'N/A',
-        fluencyLevel: _scoreToLevelSafe(assessment['fluency_score']),
-        expressivenessLevel: _scoreToLevelSafe(assessment['prosody_score']),
-        speechDuration: (features['speech_duration_sec'] as num?)?.toDouble(),
-        speakingRate: (features['syllable_rate_per_min'] as num?)?.toDouble(),
-        pauseCount: features['pause_count'] as int?,
-        feedbackSummary:
-            feedback.isNotEmpty ? feedback.first : 'No feedback available.',
-        rawJson: jsonEncode(data),
-      );
-
-      await AnalysisResultDao().insertResult(result);
-
-      if (!mounted) return;
-
-      setState(() {
-        _isSaved = true;
-        _isSaving = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Result saved to History')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() => _isSaving = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not save result: $e')),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -117,6 +34,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
     Map<String, dynamic>? assessment;
     Map<String, dynamic>? features;
+    Map<String, dynamic>? transcriptAnalysis;
 
     final delivery = data['delivery'];
     if (!isSpoof && delivery is Map) {
@@ -129,6 +47,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
       if (deliveryMap['features'] is Map) {
         features = Map<String, dynamic>.from(deliveryMap['features']);
       }
+    }
+
+    if (!isSpoof && data['transcript_analysis'] is Map) {
+      transcriptAnalysis =
+          Map<String, dynamic>.from(data['transcript_analysis'] as Map);
     }
 
     return Scaffold(
@@ -169,34 +92,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 _FeatureHighlights(features: features),
                 const SizedBox(height: 20),
               ],
+              if (transcriptAnalysis != null) ...[
+                _TranscriptAnalysisCard(analysis: transcriptAnalysis),
+                const SizedBox(height: 20),
+              ],
               _FeedbackList(feedback: feedback),
               const SizedBox(height: 20),
-            ],
-
-            if (!isSpoof) ...[
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _isSaving || _isSaved ? null : _saveResult,
-                  icon: Icon(
-                    _isSaved ? Icons.check : Icons.bookmark_add_outlined,
-                  ),
-                  label: Text(
-                    _isSaved
-                        ? 'Saved to History'
-                        : _isSaving
-                            ? 'Saving...'
-                            : 'Save Result',
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
             ],
 
             SizedBox(
@@ -697,6 +598,171 @@ class _FeatureChip extends StatelessWidget {
                 style: const TextStyle(
                     fontWeight: FontWeight.bold, fontSize: 14)),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Transcript analysis ─────────────────────────────────────────────────────
+
+class _TranscriptAnalysisCard extends StatefulWidget {
+  final Map<String, dynamic> analysis;
+
+  const _TranscriptAnalysisCard({required this.analysis});
+
+  @override
+  State<_TranscriptAnalysisCard> createState() => _TranscriptAnalysisCardState();
+}
+
+class _TranscriptAnalysisCardState extends State<_TranscriptAnalysisCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final transcript = (widget.analysis['transcript'] ?? '').toString();
+
+    final filler = widget.analysis['filler_words'] is Map
+        ? Map<String, dynamic>.from(widget.analysis['filler_words'] as Map)
+        : <String, dynamic>{};
+
+    final grammar = widget.analysis['grammar'] is Map
+        ? Map<String, dynamic>.from(widget.analysis['grammar'] as Map)
+        : <String, dynamic>{};
+
+    final pronunciation = widget.analysis['pronunciation'] is Map
+        ? Map<String, dynamic>.from(widget.analysis['pronunciation'] as Map)
+        : <String, dynamic>{};
+
+    final transcriptFeedback = widget.analysis['feedback'] is List
+        ? List<String>.from(widget.analysis['feedback'])
+        : <String>[];
+
+    final fillerTotal = filler['total'] ?? 0;
+    final grammarIssues = grammar['issue_count'] ?? 0;
+    final clarityLevel = pronunciation['clarity_level'] ?? 'N/A';
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Transcript & Language Feedback',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 14),
+
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _MiniTag(label: 'Fillers: $fillerTotal', color: Colors.blue),
+                _MiniTag(
+                  label: 'Grammar notes: $grammarIssues',
+                  color: Colors.purple,
+                ),
+                _MiniTag(
+                  label: 'Clarity: $clarityLevel',
+                  color: Colors.teal,
+                ),
+              ],
+            ),
+
+            if (transcriptFeedback.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              ...transcriptFeedback.take(3).map(
+                    (item) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.arrow_right,
+                            size: 18,
+                            color: Colors.grey,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              item,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+            ],
+
+            if (transcript.isNotEmpty) ...[
+              const Divider(height: 24),
+              GestureDetector(
+                onTap: () => setState(() => _expanded = !_expanded),
+                child: Row(
+                  children: [
+                    const Icon(Icons.notes_outlined, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      _expanded ? 'Hide transcript' : 'Show transcript',
+                      style: const TextStyle(
+                        color: Color(0xFF2E75B6),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Icon(
+                      _expanded
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      color: const Color(0xFF2E75B6),
+                    ),
+                  ],
+                ),
+              ),
+              if (_expanded) ...[
+                const SizedBox(height: 12),
+                Text(
+                  transcript,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.45,
+                    color: Color(0xFF334155),
+                  ),
+                ),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniTag extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _MiniTag({
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

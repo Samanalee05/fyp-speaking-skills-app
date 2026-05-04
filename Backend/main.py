@@ -2,6 +2,7 @@ from pathlib import Path
 import shutil
 import uuid
 from typing import Annotated, Literal
+from services.pipeline_c import analyze as pipeline_c_analyze
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -76,6 +77,16 @@ async def analyze(
 
         pb_result = pipeline_b_analyze(str(temp_path), mode=mode)
 
+        pc_result = pipeline_c_analyze(
+            str(temp_path),
+            acoustic_features=pb_result["features"],
+        )
+
+        combined_feedback = (
+            pb_result["assessment"]["feedback"]
+            + pc_result.get("feedback", [])
+        )
+
         return {
             "status": "ok",
             "authenticity": authenticity,
@@ -83,7 +94,8 @@ async def analyze(
                 "features": pb_result["features"],
                 "assessment": pb_result["assessment"],
             },
-            "feedback": pb_result["assessment"]["feedback"],
+            "transcript_analysis": pc_result,
+            "feedback": combined_feedback,
             "mode": mode,
         }
 
