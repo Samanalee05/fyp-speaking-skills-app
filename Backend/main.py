@@ -33,7 +33,11 @@ def health():
 @app.post("/analyze")
 async def analyze(
     file: Annotated[UploadFile, File(...)],
-    mode: Annotated[Literal["academic", "public_speaking"], Query()] = "academic",
+    mode: Annotated[
+        Literal["academic", "public_speaking", "read_aloud"],
+        Query()
+    ] = "academic",
+    expected_text: Annotated[str | None, Query()] = None,
 ):
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided.")
@@ -75,11 +79,13 @@ async def analyze(
                 "mode": mode,
             }
 
-        pb_result = pipeline_b_analyze(str(temp_path), mode=mode)
+        pb_mode = "academic" if mode == "read_aloud" else mode
+        pb_result = pipeline_b_analyze(str(temp_path), mode=pb_mode)
 
         pc_result = pipeline_c_analyze(
             str(temp_path),
             acoustic_features=pb_result["features"],
+            expected_text=expected_text,
         )
 
         combined_feedback = (

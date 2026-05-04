@@ -437,7 +437,7 @@ def assess_delivery(features: dict, mode: str = DEFAULT_MODE) -> dict:
     }
 
 
-# ===== PUBLIC FUNCTION =====
+# ===== PUBLIC FUNCTION ===== =
 def analyze(audio_path: str, mode: str = DEFAULT_MODE) -> dict:
     """Full Pipeline B entry point. Called from main.py."""
     features   = extract_features(audio_path)

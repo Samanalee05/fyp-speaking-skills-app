@@ -11,7 +11,14 @@ const String _backendBaseUrl = 'http://192.168.8.201:8000';
 class ProcessingScreen extends StatefulWidget {
   final String audioPath;
   final String mode;
-  const ProcessingScreen({super.key, required this.audioPath, required this.mode});
+  final String? expectedText;
+
+  const ProcessingScreen({
+    super.key,
+    required this.audioPath,
+    required this.mode,
+    this.expectedText,
+  });
 
   @override
   State<ProcessingScreen> createState() => _ProcessingScreenState();
@@ -43,7 +50,10 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
 
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('$_backendBaseUrl/analyze?mode=${widget.mode}'),
+        Uri.parse(
+          '$_backendBaseUrl/analyze?mode=${widget.mode}'
+          '${widget.expectedText != null ? '&expected_text=${Uri.encodeComponent(widget.expectedText!)}' : ''}',
+        ),
       );
       request.files.add(await http.MultipartFile.fromPath(
         'file',
