@@ -349,19 +349,20 @@ def compare_expected_text(transcript: str, expected_text: Optional[str]) -> dict
 
     if similarity >= 0.85:
         level = "Good"
-        note = "The read-aloud transcript closely matched the expected passage."
+        note = "You read most of the passage clearly and accurately. Good job!"
     elif similarity >= 0.65:
         level = "Moderate"
-        note = "The transcript mostly matched the passage, but some words may need clearer articulation."
+        note = "Most of the passage was clear, but a few words may need more careful pronunciation. Keep practising!"
     else:
         level = "Needs improvement"
-        note = "The transcript differed noticeably from the expected passage. Practise reading more clearly and steadily."
+        note = "Several words were not recognised clearly. Try reading more slowly and carefully. Focus on pronouncing each word clearly."
 
     return {
         "available": True,
         "similarity": round(float(similarity), 3),
         "level": level,
         "missing_keywords": missing_keywords,
+        "words_to_practise": missing_keywords,
         "note": note,
     }
 

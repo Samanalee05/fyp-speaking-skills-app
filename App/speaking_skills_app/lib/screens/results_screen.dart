@@ -84,7 +84,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
             if (isSpoof) ...[
               _SpoofWarning(),
             ] else if (assessment != null) ...[
-              _OverallLevelCard(assessment: assessment),
+              _OverallLevelCard(
+                  assessment: assessment,
+                  modeOverride: data['mode'] as String?,
+                ),
               const SizedBox(height: 20),
               _ScoreBreakdown(assessment: assessment),
               const SizedBox(height: 20),
@@ -213,7 +216,12 @@ class _SpoofWarning extends StatelessWidget {
 
 class _OverallLevelCard extends StatelessWidget {
   final Map<String, dynamic> assessment;
-  const _OverallLevelCard({required this.assessment});
+  final String? modeOverride;
+
+  const _OverallLevelCard({
+    required this.assessment,
+    this.modeOverride,
+  });
 
   Color _levelColor(String level) {
     switch (level) {
@@ -234,7 +242,7 @@ class _OverallLevelCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final level = assessment['overall_level'] as String? ?? 'Medium';
-    final mode  = assessment['mode'] as String? ?? 'academic';
+    final mode = modeOverride ?? assessment['mode'] as String? ?? 'academic';
 
     return Card(
       elevation: 3,
@@ -267,7 +275,11 @@ class _OverallLevelCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                mode == 'academic' ? 'Academic Mode' : 'Public Speaking Mode',
+                switch (mode) {
+                  'public_speaking' => 'Public Speaking Mode',
+                  'read_aloud' => 'Read Aloud Mode',
+                  _ => 'Academic Mode',
+                },
                 style: TextStyle(color: Colors.blue[700], fontSize: 12),
               ),
             ),
@@ -387,7 +399,7 @@ class _ScoreDimension extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+                color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(level,
@@ -719,7 +731,13 @@ class _TranscriptAnalysisCardState extends State<_TranscriptAnalysisCard> {
     final fillerSet = _fillerWordsSet(filler);
     final grammarIssues = grammar['issue_count'] ?? 0;
     final clarityLevel = pronunciation['clarity_level'] ?? 'N/A';
-    
+    final readAloudComparison = pronunciation['read_aloud_comparison'] is Map
+          ? Map<String, dynamic>.from(pronunciation['read_aloud_comparison'] as Map,)
+          : <String, dynamic>{};
+
+    final hasReadAloudComparison =
+        readAloudComparison['available'] == true;
+
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
@@ -749,11 +767,11 @@ class _TranscriptAnalysisCardState extends State<_TranscriptAnalysisCard> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blueGrey.withOpacity(0.08),
+                color: Colors.blueGrey.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'Detected fillers: $fillerBreakdown',
+                'Possible fillers: $fillerBreakdown',
                 style: const TextStyle(
                   fontSize: 13,
                   color: Color(0xFF334155),
@@ -762,6 +780,11 @@ class _TranscriptAnalysisCardState extends State<_TranscriptAnalysisCard> {
             ),
 
             const SizedBox(height: 14),
+
+            if (hasReadAloudComparison) ...[
+              _ReadAloudComparisonBox(comparison: readAloudComparison),
+              const SizedBox(height: 14),
+            ],
 
             if (transcriptFeedback.isNotEmpty) ...[
               const SizedBox(height: 14),
@@ -825,6 +848,137 @@ class _TranscriptAnalysisCardState extends State<_TranscriptAnalysisCard> {
   }
 }
 
+class _ReadAloudComparisonBox extends StatelessWidget {
+  final Map<String, dynamic> comparison;
+
+  const _ReadAloudComparisonBox({
+    required this.comparison,
+  });
+
+  Color _levelColor(String level) {
+    switch (level) {
+      case 'Good':
+        return Colors.green[600]!;
+      case 'Moderate':
+        return Colors.orange[600]!;
+      case 'Needs improvement':
+        return Colors.red[500]!;
+      default:
+        return Colors.grey[600]!;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final level = (comparison['level'] ?? 'N/A').toString();
+    final similarity = comparison['similarity'];
+    final note = (comparison['note'] ?? '').toString();
+
+    final missingWords = comparison['words_to_practise'] is List
+        ? List<String>.from(comparison['words_to_practise'])
+        : comparison['missing_keywords'] is List
+            ? List<String>.from(comparison['missing_keywords'])
+            : <String>[];
+
+    final similarityText = similarity is num
+        ? '${(similarity * 100).toStringAsFixed(0)}%'
+        : 'N/A';
+
+    final levelColor = _levelColor(level);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: levelColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: levelColor.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Pronunciation & Reading Accuracy',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _MiniTag(
+                label: 'Match: $similarityText',
+                color: levelColor,
+              ),
+              _MiniTag(
+                label: level,
+                color: levelColor,
+              ),
+            ],
+          ),
+
+          if (missingWords.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Words to practise',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF475569),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: missingWords.take(8).map((word) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: levelColor.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Text(
+                    word,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: levelColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+
+          if (note.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              note,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.35,
+                color: Color(0xFF334155),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _MiniTag extends StatelessWidget {
   final String label;
   final Color color;
@@ -839,7 +993,7 @@ class _MiniTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
