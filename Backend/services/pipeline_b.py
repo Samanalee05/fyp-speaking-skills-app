@@ -1,3 +1,4 @@
+# derived from PipelineB_v3_feature_extraction notebook
 import os
 import imageio_ffmpeg
 import subprocess
@@ -24,7 +25,7 @@ MIN_PAUSE_SEC = 0.25
 _FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 
 # ===== CLASSIFIER =====
-_MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "rf_classifier.pkl"
+_MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "rf_classifier.pkl" # trained in PipelineB_v3_feature_extraction notebook
 _LE_PATH    = Path(__file__).resolve().parent.parent / "models" / "label_encoder.pkl"
 
 print(f"[Pipeline B] Loading RF classifier from: {_MODEL_PATH}")
@@ -237,7 +238,7 @@ def _classify_with_rf(features: dict) -> str:
     Predict overall delivery level using the trained Random Forest classifier.
     Returns 'Low', 'Medium', or 'High'
     Note: classifier was trained on SpeechOcean762 (short utterances, Mandarin L1 speakers).
-    Results are used as supplementary information alongside rule-based scoring.
+    Results are used alongside rule-based scoring.
     """
     feature_vector = np.array([[features[col] for col in FEATURE_COLS]])
     pred_enc       = _clf.predict(feature_vector)[0]
@@ -261,19 +262,19 @@ def _score_fluency(features: dict, thresholds: dict) -> tuple:
     if pauses_per_minute < 1:
         score += 1
         feedback.append(
-            "Very few pauses were detected. This can make speech sound rushed or unnatural."
+            "You use very few pauses. This can make speech sound rushed or unnatural. Try to add more natural breaks between ideas and sentences."
         )
     elif pauses_per_minute < t["pauses_per_min_few"]:
         score += 2
         feedback.append(
-            "You use relatively few pauses. Adding more phrasing may improve clarity."
+            "You use a few pauses. Good, but consider adding more natural breaks between ideas and sentences."
         )
     elif pauses_per_minute <= t["pauses_per_min_good"]:
         score += 3
         feedback.append("Your use of pauses is natural and well-paced.")
     elif pauses_per_minute <= t["pauses_per_min_moderate"]:
         score += 2
-        feedback.append("Your pauses are noticeable but still within a moderate range.")
+        feedback.append("You pause somewhat frequently. This can be good for clarity, but too many pauses may disrupt the flow.")
     else:
         score += 1
         feedback.append(
@@ -284,48 +285,48 @@ def _score_fluency(features: dict, thresholds: dict) -> tuple:
     if avg_pause == 0.0:
         score += 2
         feedback.append(
-            "No longer pauses were detected. This may sound slightly rushed if the speech lacks phrasing."
+            "Your pauses are quite short. This may sound slightly rushed if the speech lacks phrasing."
         )
     elif avg_pause <= t["avg_pause_short"]:
         score += 3
         feedback.append("Your pauses are mostly short and natural.")
     elif avg_pause <= t["avg_pause_moderate"]:
         score += 2
-        feedback.append("Some pauses are slightly long, but they do not strongly disrupt the delivery.")
+        feedback.append("Some pauses are slightly long, but they do not strongly disrupt your flow.")
     else:
         score += 1
-        feedback.append("Some pauses are quite long and may disrupt the flow of your delivery.")
+        feedback.append("Some of your pauses are quite long and may disrupt the flow of your speech.")
 
     # 3) Hesitation / silence ratio
     if hesitation_ratio <= t["hesitation_good"]:
         score += 3
-        feedback.append("Your speech flow is generally smooth.")
+        feedback.append("Your speech flow is generally smooth, with little hesitation.")
     elif hesitation_ratio <= t["hesitation_moderate"]:
         score += 2
-        feedback.append("There is a moderate amount of silence or hesitation in your delivery.")
+        feedback.append("There is a moderate amount of silence or hesitation in your speech. Practising with a short outline may help you maintain better flow.")
     else:
         score += 1
         feedback.append(
-            "A large portion of your delivery contains silence or hesitation. Practising with a short outline may help."
+            "Your speech contains a lot of silence or hesitation. Practising with a short outline may help you maintain better flow."
         )
 
     # 4) Speaking rate
-    # Approximate syllables per minute, not exact words per minute.
+    # Approximate syllables per minute. Optimal range is around 150-160 for presentations, but this can vary by context and speaker.
     if speaking_rate < 90:
         score += 1
-        feedback.append("Your speaking rate is quite slow, which may reduce momentum.")
+        feedback.append("Your speaking rate is quite slow, which may reduce momentum. Practising with a timer and speeding up a bit may help.")
     elif speaking_rate < 115:
         score += 2
-        feedback.append("Your speaking rate is slightly slow but still understandable.")
+        feedback.append("Your speaking rate is slightly slow but still understandable. Try finding a more natural pace to improve engagement.")
     elif speaking_rate <= 175:
         score += 3
-        feedback.append("Your speaking rate is within a comfortable range.")
+        feedback.append("You speak at a comfortable speed. This helps maintain clarity and listener engagement.")
     elif speaking_rate <= 200:
         score += 2
-        feedback.append("Your speaking rate is slightly fast. Slowing down may improve clarity.")
+        feedback.append("You speak a little too fast. Slowing down may improve clarity. Try finding a more natural pace to improve engagement.")
     else:
         score += 1
-        feedback.append("Your speaking rate is very fast, which may make the delivery harder to follow.")
+        feedback.append("You speak too quickly, which may make your speech harder to follow. Practising with a timer and slowing your pace can improve clarity.")
 
     return score / 4.0, feedback
 
@@ -342,40 +343,40 @@ def _score_prosody(features: dict) -> tuple:
     # Pitch variability
     if pitch_std >= 80:
         score += 3
-        feedback.append("Your pitch variation makes your delivery sound expressive and engaging.")
+        feedback.append("Your tone sounded expressive and engaging. This keeps the audience interested.")
     elif pitch_std >= 45:
         score += 2
-        feedback.append("Your pitch variation is moderate. Varying your tone more could improve emphasis.")
+        feedback.append("Your tone sounded moderately expressive. Try varying your tone more to sound more engaging.")
     else:
         score += 1
-        feedback.append("Your speech sounds quite monotone. Try varying your pitch to sound more engaging.")
+        feedback.append("Your speaking sounded quite flat. Try varying your tone more to sound more engaging. Focus on emotion, highs, and lows.")
 
     # Pitch range
     if pitch_range >= 240:
         score += 3
-        feedback.append("Your pitch range supports an engaging and varied speaking style.")
+        feedback.append("Your pitch range is broad, which adds expressiveness to your speech. Good for continuous engagement.")
     elif pitch_range >= 140:
         score += 2
-        feedback.append("Your pitch range is acceptable but could be broader for stronger expression.")
+        feedback.append("Your pitch range is decent, but you could expand it further with pitch exercises to keep speeches interesting.")
     else:
         score += 1
-        feedback.append("Your pitch range is quite narrow. Try using more intonation at key points.")
+        feedback.append("Your pitch variation is limited. Try using more intonation on important points. Pitch exercises or mimicking expressive speakers may help.")
 
     # Loudness / energy variation
     if energy_std >= 0.05:
         score += 3
-        feedback.append("Your loudness variation helps maintain listener engagement.")
+        feedback.append("You vary speech volume well, which helps maintain listener engagement.")
     elif energy_std >= 0.02:
         score += 2
-        feedback.append("Your loudness variation is moderate. Emphasising important words more would improve your delivery.")
+        feedback.append("You vary speech volume moderately. Emphasising important words more would improve your delivery.")
     else:
         score += 1
-        feedback.append("Your voice is quite flat in volume. Try adding more emphasis to key words.")
+        feedback.append("Your voice is quite flat in volume. Try emphasising key words, speaking louder on important points to capture attention.")
 
     # Voice quality feedback only — does not affect score directly
     if hnr > 0:
         if hnr >= 20:
-            feedback.append("Your voice clarity is good — your speech sounds clean and well-projected.")
+            feedback.append("Your voice clarity is excellent — your speech sounds clean and well-projected.")
         elif hnr >= 12:
             feedback.append("Your voice clarity is moderate. Try to project your voice more confidently.")
         else:
@@ -385,7 +386,7 @@ def _score_prosody(features: dict) -> tuple:
         feedback.append("Some vocal tension was detected. Try to relax your voice before speaking.")
 
     if shimmer > 0.05:
-        feedback.append("Your vocal stability could improve. Consistent breath support may help.")
+        feedback.append("Your vocal stability could improve. Relaxing your voice and consistent breath support may help.")
 
     return score / 3.0, feedback
 
@@ -418,11 +419,11 @@ def assess_delivery(features: dict, mode: str = DEFAULT_MODE) -> dict:
 
     feedback = fluency_feedback + prosody_feedback
     if overall_level == "High":
-        summary = "Your delivery is strong and clear — well done."
+        summary = "You speak clearly and confidently. Well done!"
     elif overall_level == "Medium":
-        summary = "Your delivery is fairly good but has some areas for improvement."
+        summary = "You speak fairly well, but have some areas for improvement. You're on the right track!"
     else:
-        summary = "Your delivery needs improvement in fluency and expressiveness."
+        summary = "Your speaking needs improvement. Don't worry, keep practising and you'll get better!"
     feedback.insert(0, summary)
 
     return {

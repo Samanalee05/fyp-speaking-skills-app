@@ -756,7 +756,7 @@ class _TranscriptAnalysisCardState extends State<_TranscriptAnalysisCard> {
               runSpacing: 8,
               children: [
                 _MiniTag(label: 'Fillers: $fillerTotal', color: Colors.blue),
-                _MiniTag(label: 'Grammar notes: $grammarIssues', color: Colors.purple),
+                _MiniTag(label: 'Grammar: $grammarIssues', color: Colors.purple),
                 _MiniTag(label: 'Clarity: $clarityLevel', color: Colors.teal),
               ],
             ),
@@ -1023,7 +1023,7 @@ class _FeedbackList extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Feedback',
+            const Text('Detailed Feedback',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 12),
             ...feedback.asMap().entries.map((entry) {

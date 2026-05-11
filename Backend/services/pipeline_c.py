@@ -62,7 +62,6 @@ CONNECTORS = {
 
 
 def _get_model():
-    """Load Whisper model lazily so backend startup does not become too slow."""
     global _model
     if _model is None:
         print(f"[Pipeline C] Loading Whisper model: {_MODEL_NAME}")
@@ -103,7 +102,6 @@ def _convert_to_wav(src: str) -> str:
 def _load_audio_for_whisper(path: str) -> np.ndarray:
     """
     Convert audio to wav, then load as float32 numpy array at 16 kHz.
-    Whisper accepts numpy audio directly, avoiding dependency on system ffmpeg.
     """
     ext = Path(path).suffix.lower()
     tmp_path = None
@@ -146,7 +144,7 @@ def _tokenize_words(text: str) -> list[str]:
 
 def transcribe_audio(audio_path: str) -> dict:
     """
-    Transcribe audio using local Whisper.
+    Transcribe audio.
     Returns transcript and rough ASR confidence indicators.
     """
     model = _get_model()
@@ -256,7 +254,6 @@ def analyse_word_use(transcript: str) -> dict:
 def analyse_grammar_basic(transcript: str) -> dict:
     """
     Basic rule-based grammar indicators.
-    This is not full grammar correction.
     """
     text = _normalise_text(transcript)
     words = _tokenize_words(text)
@@ -269,18 +266,18 @@ def analyse_grammar_basic(transcript: str) -> dict:
             repeated_adjacent.append(words[i])
 
     if repeated_adjacent:
-        notes.append("Repeated adjacent words were detected.")
+        notes.append("Some repeated words were found. Try pausing briefly to gather your thoughts instead of repeating words.")
 
     # Very long transcript with few sentence boundaries.
     sentence_like_parts = re.split(r"[.!?]+", transcript)
     sentence_like_parts = [s.strip() for s in sentence_like_parts if s.strip()]
 
     if len(words) >= 80 and len(sentence_like_parts) <= 1:
-        notes.append("The response may contain long run-on speech with limited sentence boundaries.")
+        notes.append("Some sentences may be too long or run together. Try separating your points more clearly.")
 
     # Very short fragments.
     if 0 < len(words) < 20:
-        notes.append("The response is quite short, which may limit language assessment.")
+        notes.append("Your response was quite short, so the language feedback may be limited.")
 
     # Repeated connectors.
     connector_counts = {}
@@ -290,7 +287,7 @@ def analyse_grammar_basic(transcript: str) -> dict:
             connector_counts[connector] = count
 
     if connector_counts:
-        notes.append("Some connectors appear frequently; try using a wider range of linking words.")
+        notes.append("Some linking words were repeated often. Try using a wider range of connectors.")
 
     return {
         "issue_count": len(notes),
@@ -302,7 +299,7 @@ def analyse_grammar_basic(transcript: str) -> dict:
 def compare_expected_text(transcript: str, expected_text: Optional[str]) -> dict:
     """
     Compare ASR transcript against expected read-aloud passage.
-    This is a pronunciation/articulation proxy, not phoneme-level scoring.
+    This is a pronunciation/articulation proxy.
     """
     if not expected_text:
         return {
@@ -349,13 +346,13 @@ def compare_expected_text(transcript: str, expected_text: Optional[str]) -> dict
 
     if similarity >= 0.85:
         level = "Good"
-        note = "You read most of the passage clearly and accurately. Good job!"
+        note = "You read most of the passage clearly and accurately."
     elif similarity >= 0.65:
         level = "Moderate"
-        note = "Most of the passage was clear, but a few words may need more careful pronunciation. Keep practising!"
+        note = "Most of the passage was clear, but a few words may need more careful pronunciation."
     else:
         level = "Needs improvement"
-        note = "Several words were not recognised clearly. Try reading more slowly and carefully. Focus on pronouncing each word clearly."
+        note = "Several words were not recognised clearly. Try reading more slowly and pronouncing each word carefully."
 
     return {
         "available": True,
@@ -373,7 +370,6 @@ def analyse_pronunciation_proxy(
 ) -> dict:
     """
     Estimate pronunciation/clarity indicators.
-    This is NOT phoneme-level pronunciation scoring.
     It uses acoustic clarity features from Pipeline B and ASR recognisability.
     """
     acoustic_features = acoustic_features or {}
@@ -393,44 +389,44 @@ def analyse_pronunciation_proxy(
         score += 2
     elif hnr >= 12:
         score += 1
-        notes.append("Voice clarity was moderate.")
+        notes.append("Your voice was moderately clear.")
     else:
-        notes.append("Voice clarity may be reduced or breathy.")
+        notes.append("Your voice may be breathy or less clear.")
 
     # Jitter/shimmer: high values suggest vocal instability.
     if jitter <= 0.02:
         score += 1
     else:
-        notes.append("Some vocal instability was detected.")
+        notes.append("Some instability was detected in your voice.")
 
     if shimmer <= 0.06:
         score += 1
     else:
-        notes.append("Amplitude variation suggests unstable projection.")
+        notes.append("Amplitude variation in your speaking suggests unstable voice projection.")
 
     if 90 <= speaking_rate <= 190:
         score += 1
     else:
-        notes.append("Speaking rate may affect intelligibility.")
+        notes.append("Your speaking rate may affect clarity. Try to speak at a moderate pace.")
 
     if len(_tokenize_words(transcript)) < 10:
-        notes.append("Transcript was very short, so pronunciation clarity is uncertain.")
+        notes.append("Your response was quite short, which may limit clarity assessment.")
 
     if score >= 4:
         level = "Good"
-        main_note = "Speech was generally clear and intelligible."
+        main_note = "Your speech was clear and well-articulated."
     elif score >= 2:
         level = "Moderate"
         main_note = "Speech was mostly recognisable, but some words may need clearer articulation."
     else:
         level = "Needs improvement"
-        main_note = "Speech clarity may need improvement. Try speaking more steadily and clearly."
+        main_note = "Speech clarity may need improvement. Practice speaking more steadly and say each word clearly."
 
     if main_note not in notes:
         notes.insert(0, main_note)
 
     if read_aloud_comparison["available"]:
-        # If read-aloud comparsion is available, include it as stronger evidenc
+        # If read-aloud comparsion is available, include it as strongr evidenc
         comparison_level = read_aloud_comparison["level"]
         comparison_note = read_aloud_comparison["note"]
 
@@ -460,26 +456,26 @@ def _generate_transcript_feedback(
     filler_level = filler_words.get("level", "Good")
 
     if filler_total == 0:
-        feedback.append("No major filler word use was detected.")
+        feedback.append("You used very few filler words.")
     elif filler_level == "Good":
-        feedback.append("Only a small number of filler words were detected.")
+        feedback.append("You only used a few filler words. Try to replace fillers with brief pauses.")
     elif filler_level == "Moderate":
-        feedback.append("Some filler words were detected. Try pausing briefly instead of using fillers.")
+        feedback.append("Some possible filler words were found. Try pausing briefly instead and plan your thoughts ahead.")
     else:
-        feedback.append("Frequent filler words were detected. Practise planning key points before speaking.")
+        feedback.append("Many possible filler words were found. Try pausing briefly instead. Planning your main points first may help you speak more smoothly.")
 
     lexical_level = word_use.get("lexical_density_level", "N/A")
     if lexical_level == "Limited":
-        feedback.append("Your response may rely on simple or repeated wording. Try adding more specific vocabulary.")
+        feedback.append("Your vocabulary use is quite basic. Try to learn and use more diverse words so you can express yourself more effectively.")
     elif lexical_level == "Moderate":
-        feedback.append("Your vocabulary use is acceptable, with room for more variety.")
+        feedback.append("Your word choice was clear, with some room for more variety to better express your ideas.")
     elif lexical_level == "Rich":
-        feedback.append("Your response shows a good balance of content words.")
+        feedback.append("Your word choice was varied and meaningful. That's great for expressing yourself effectively.")
 
     if grammar.get("issue_count", 0) > 0:
         feedback.extend(grammar.get("notes", [])[:2])
     else:
-        feedback.append("No major transcript-based grammar patterns were flagged.")
+        feedback.append("Your grammar appears good. No major issues were detected in the transcript.")
 
     feedback.append(pronunciation.get("note", ""))
 

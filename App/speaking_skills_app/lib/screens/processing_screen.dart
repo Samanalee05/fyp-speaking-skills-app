@@ -1,3 +1,4 @@
+import '../config.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -5,7 +6,6 @@ import 'results_screen.dart';
 import '../services/firestore_service.dart';
 
 
-const String _backendBaseUrl = 'http://192.168.8.201:8000';
 
 
 class ProcessingScreen extends StatefulWidget {
@@ -51,7 +51,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
       final request = http.MultipartRequest(
         'POST',
         Uri.parse(
-          '$_backendBaseUrl/analyze?mode=${widget.mode}'
+          '$backendBaseUrl/analyze?mode=${widget.mode}'
           '${widget.expectedText != null ? '&expected_text=${Uri.encodeComponent(widget.expectedText!)}' : ''}',
         ),
       );
