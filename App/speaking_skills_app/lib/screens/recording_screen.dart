@@ -158,6 +158,7 @@ class _RecordingScreenState extends State<RecordingScreen>
           audioPath: _recordingPath!,
           mode: _selectedMode,
           expectedText: _selectedMode == 'read_aloud' ? _selectedPassage.text : null,
+          passageId: _selectedMode == 'read_aloud' ? _selectedPassage.id : null,
         ),
       ),
     );
@@ -183,6 +184,7 @@ class _RecordingScreenState extends State<RecordingScreen>
           audioPath: path,
           mode: _selectedMode,
           expectedText: _selectedMode == 'read_aloud' ? _selectedPassage.text : null,
+          passageId: _selectedMode == 'read_aloud' ? _selectedPassage.id : null,
         ),
       ),
     );
@@ -700,4 +702,41 @@ const List<_ReadAloudPassage> _readAloudPassages = [
         'more flexible and accessible. However, students still need discipline '
         'and practice to develop strong communication skills.',
   ),
+  _ReadAloudPassage(
+  id: 'thursday_evening',
+  title: 'Thursday Evening',
+  text:
+      'On Thursday evening, the thoughtful researcher carefully checked the '
+      'weather charts before walking through the crowded station. Although the '
+      'forecast suggested smooth conditions, a sudden change in pressure created '
+      'a sharp, restless breeze. Several passengers paused briefly, exchanging '
+      'curious glances, while the conductor calmly announced a slight delay. '
+      'Beneath the bright platform lights, the atmosphere shifted strangely, '
+      'as though something unexpected were about to happen.',
+),
+_ReadAloudPassage(
+  id: 'effective_communication',
+  title: 'Effective Communication',
+  text:
+      'Effective communication requires more than technical accuracy; it depends '
+      'on clarity, confidence, and careful organization of ideas. Researchers '
+      'frequently emphasize that consistent practice improves both articulation '
+      'and audience engagement. However, progress often requires deliberate '
+      'reflection on pacing, pronunciation, and vocal variation. By analyzing '
+      'performance critically and responding to constructive feedback, individuals '
+      'can gradually develop stronger presentation skills and communicate complex '
+      'information with greater precision and credibility.',
+),
+_ReadAloudPassage(
+  id: 'progress_action',
+  title: 'Progress in Action',
+  text:
+      'Progress is rarely the result of sudden transformation; it is usually shaped '
+      'by small, deliberate choices repeated over time. The most significant '
+      'achievements often begin with uncertainty, requiring patience, discipline, '
+      'and quiet persistence. Although setbacks may seem discouraging, they '
+      'frequently reveal opportunities for reflection and improvement. In this '
+      'way, success becomes less about immediate results and more about the steady '
+      'commitment to growth, resilience, and thoughtful action.',
+),
 ];

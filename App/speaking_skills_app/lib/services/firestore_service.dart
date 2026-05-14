@@ -50,11 +50,8 @@ class FirestoreService {
         ? Map<String, dynamic>.from(transcriptAnalysis['pronunciation'] as Map)
         : <String, dynamic>{};
     
-    final readAloudComparison =
-    pronunciation['read_aloud_comparison'] is Map
-        ? Map<String, dynamic>.from(
-            pronunciation['read_aloud_comparison'] as Map,
-          )
+    final readAloudComparison = pronunciation['read_aloud_comparison'] is Map
+        ? Map<String, dynamic>.from(pronunciation['read_aloud_comparison'] as Map,)
         : <String, dynamic>{};
 
     final transcriptFeedback = transcriptAnalysis['feedback'] is List
@@ -100,10 +97,21 @@ class FirestoreService {
       'grammarIssueCount': grammar['issue_count'] ?? 0,
       'pronunciationLevel': pronunciation['clarity_level'] ?? 'N/A',
       'transcriptFeedback': transcriptFeedback,
+
       //Read-aloud comparison
       'readAloudAvailable': readAloudComparison['available'] ?? false,
       'readAloudSimilarity': readAloudComparison['similarity'],
       'readAloudLevel': readAloudComparison['level'] ?? 'N/A',
+
+      'readAloudOverallScore': readAloudComparison['overall_score'],
+      'readAloudReadingAccuracy':
+          readAloudComparison['reading_accuracy'] ??
+          readAloudComparison['word_accuracy'],
+      'readAloudPronunciationScore': readAloudComparison['pronunciation_score'],
+      'readAloudPronunciationModel': readAloudComparison['pronunciation_model'] ?? {},
+
+      'readAloudWordAccuracy': readAloudComparison['word_accuracy'],
+      'readAloudWordFeedback': readAloudComparison['word_feedback'] ?? [],
       'wordsToPractise': 
           readAloudComparison['words_to_practise'] ??
           readAloudComparison['missing_keywords'] ??

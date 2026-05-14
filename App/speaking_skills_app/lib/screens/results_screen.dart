@@ -871,8 +871,27 @@ class _ReadAloudComparisonBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final level = (comparison['level'] ?? 'N/A').toString();
-    final similarity = comparison['similarity'];
+    final overallScore = comparison['overall_score'] ?? comparison['similarity'];
+    final readingAccuracy =
+        comparison['reading_accuracy'] ?? comparison['word_accuracy'];
+    final pronunciationScore = comparison['pronunciation_score'];
     final note = (comparison['note'] ?? '').toString();
+
+    final pronunciationModel = comparison['pronunciation_model'] is Map
+        ? Map<String, dynamic>.from(comparison['pronunciation_model'])
+        : <String, dynamic>{};
+
+    final pronunciationLevel =
+        (pronunciationModel['level'] ?? 'N/A').toString();
+    final estimatedErrorRatio = pronunciationModel['estimated_error_ratio'];
+
+    final wordFeedback = comparison['word_feedback'] is List
+        ? List<Map<String, dynamic>>.from(
+            (comparison['word_feedback'] as List).whereType<Map>().map(
+                  (item) => Map<String, dynamic>.from(item),
+                ),
+          )
+        : <Map<String, dynamic>>[];
 
     final missingWords = comparison['words_to_practise'] is List
         ? List<String>.from(comparison['words_to_practise'])
@@ -880,9 +899,12 @@ class _ReadAloudComparisonBox extends StatelessWidget {
             ? List<String>.from(comparison['missing_keywords'])
             : <String>[];
 
-    final similarityText = similarity is num
-        ? '${(similarity * 100).toStringAsFixed(0)}%'
-        : 'N/A';
+    String percentText(dynamic value) {
+      if (value is num) {
+        return '${(value * 100).toStringAsFixed(0)}%';
+      }
+      return 'N/A';
+    }
 
     final levelColor = _levelColor(level);
 
@@ -898,7 +920,7 @@ class _ReadAloudComparisonBox extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Pronunciation & Reading Accuracy',
+            'Read-Aloud Pronunciation',
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 14,
@@ -912,14 +934,44 @@ class _ReadAloudComparisonBox extends StatelessWidget {
             runSpacing: 8,
             children: [
               _MiniTag(
-                label: 'Match: $similarityText',
+                label: 'Overall: ${percentText(overallScore)}',
                 color: levelColor,
               ),
               _MiniTag(
                 label: level,
                 color: levelColor,
               ),
+              _MiniTag(
+                label: 'Reading: ${percentText(readingAccuracy)}',
+                color: levelColor,
+              ),
+              if (pronunciationScore is num)
+                _MiniTag(
+                  label: 'Pronunciation: ${percentText(pronunciationScore)}',
+                  color: levelColor,
+                ),
             ],
+          ),
+
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.72),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              estimatedErrorRatio is num
+                  ? 'Pronunciation quality: $pronunciationLevel '
+                      '(${(estimatedErrorRatio * 100).toStringAsFixed(1)}% estimated unclear speech).'
+                  : 'Pronunciation quality: $pronunciationLevel.',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF334155),
+                height: 1.35,
+              ),
+            ),
           ),
 
           if (missingWords.isNotEmpty) ...[
@@ -962,17 +1014,94 @@ class _ReadAloudComparisonBox extends StatelessWidget {
             ),
           ],
 
-          if (note.isNotEmpty) ...[
+          if (wordFeedback.isNotEmpty) ...[
             const SizedBox(height: 12),
+            const Text(
+              'Words not clearly recognised',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF475569),
+              ),
+            ),
+            const SizedBox(height: 6),
+            ...wordFeedback.take(4).map((item) {
+              final expected = (item['expected'] ?? '').toString();
+              final heard = (item['heard'] ?? '').toString();
+              final type = (item['type'] ?? '').toString();
+              final tip = (item['tip'] ?? '').toString();
+
+              return Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: levelColor.withValues(alpha: 0.20),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      heard.isNotEmpty
+                          ? '$expected → heard as "$heard"'
+                          : '$expected → not clearly detected',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      type,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                    if (tip.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        tip,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF334155),
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            }),
+          ],
+
+          if (note.isNotEmpty) ...[
+            const SizedBox(height: 10),
             Text(
               note,
               style: const TextStyle(
-                fontSize: 13,
-                height: 1.35,
+                fontSize: 12,
                 color: Color(0xFF334155),
+                height: 1.35,
               ),
             ),
           ],
+
+          const SizedBox(height: 8),
+          const Text(
+            'Reading accuracy checks the recognised transcript against the selected passage. '
+            'Pronunciation quality is estimated using a trained L2-ARCTIC phone-error model.',
+            style: TextStyle(
+              fontSize: 11,
+              color: Color(0xFF64748B),
+              height: 1.35,
+            ),
+          ),
         ],
       ),
     );

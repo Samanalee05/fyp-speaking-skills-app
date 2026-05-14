@@ -7,7 +7,6 @@ import tempfile
 from collections import Counter
 from pathlib import Path
 from typing import Optional
-from difflib import SequenceMatcher
 
 import imageio_ffmpeg
 import numpy as np
@@ -296,85 +295,18 @@ def analyse_grammar_basic(transcript: str) -> dict:
         "connector_repetition": connector_counts,
     }
 
-def compare_expected_text(transcript: str, expected_text: Optional[str]) -> dict:
-    """
-    Compare ASR transcript against expected read-aloud passage.
-    This is a pronunciation/articulation proxy.
-    """
-    if not expected_text:
-        return {
-            "available": False,
-            "similarity": None,
-            "missing_keywords": [],
-            "note": "No expected passage was provided for comparison.",
-        }
-
-    transcript_words = _tokenize_words(transcript)
-    expected_words = _tokenize_words(expected_text)
-
-    if not expected_words:
-        return {
-            "available": False,
-            "similarity": None,
-            "missing_keywords": [],
-            "note": "Expected passage was empty.",
-        }
-
-    transcript_text = " ".join(transcript_words)
-    expected_text_norm = " ".join(expected_words)
-
-    similarity = SequenceMatcher(
-        None,
-        expected_text_norm,
-        transcript_text,
-    ).ratio()
-
-    transcript_set = set(transcript_words)
-
-    # Only check meaningful content words, not every "the/is/and".
-    expected_keywords = [
-        word for word in expected_words
-        if word not in STOP_WORDS and len(word) > 4
-    ]
-
-    missing_keywords = []
-    for word in expected_keywords:
-        if word not in transcript_set and word not in missing_keywords:
-            missing_keywords.append(word)
-
-    missing_keywords = missing_keywords[:8]
-
-    if similarity >= 0.85:
-        level = "Good"
-        note = "You read most of the passage clearly and accurately."
-    elif similarity >= 0.65:
-        level = "Moderate"
-        note = "Most of the passage was clear, but a few words may need more careful pronunciation."
-    else:
-        level = "Needs improvement"
-        note = "Several words were not recognised clearly. Try reading more slowly and pronouncing each word carefully."
-
-    return {
-        "available": True,
-        "similarity": round(float(similarity), 3),
-        "level": level,
-        "missing_keywords": missing_keywords,
-        "words_to_practise": missing_keywords,
-        "note": note,
-    }
-
 def analyse_pronunciation_proxy(
     transcript: str,
     acoustic_features: Optional[dict] = None,
-    expected_text: Optional[str] = None,
 ) -> dict:
     """
-    Estimate pronunciation/clarity indicators.
-    It uses acoustic clarity features from Pipeline B and ASR recognisability.
+    General speech clarity proxy.
+
+    Uses transcript + acoustic clarity features and is useful for all modes.
+
+    Read-aloud passage comparison is handled separately by Pipeline D.
     """
     acoustic_features = acoustic_features or {}
-
-    read_aloud_comparison = compare_expected_text(transcript, expected_text)
 
     hnr = float(acoustic_features.get("hnr", 0.0) or 0.0)
     jitter = float(acoustic_features.get("jitter", 0.0) or 0.0)
@@ -384,7 +316,6 @@ def analyse_pronunciation_proxy(
     score = 0
     notes = []
 
-    # HNR: higher generally indicates clearer voiced speech.
     if hnr >= 20:
         score += 2
     elif hnr >= 12:
@@ -393,7 +324,6 @@ def analyse_pronunciation_proxy(
     else:
         notes.append("Your voice may be breathy or less clear.")
 
-    # Jitter/shimmer: high values suggest vocal instability.
     if jitter <= 0.02:
         score += 1
     else:
@@ -420,29 +350,25 @@ def analyse_pronunciation_proxy(
         main_note = "Speech was mostly recognisable, but some words may need clearer articulation."
     else:
         level = "Needs improvement"
-        main_note = "Speech clarity may need improvement. Practice speaking more steadly and say each word clearly."
+        main_note = "Speech clarity may need improvement. Try speaking more steadily. Focus on saying each word clearly."
 
     if main_note not in notes:
         notes.insert(0, main_note)
-
-    if read_aloud_comparison["available"]:
-        # If read-aloud comparsion is available, include it as strongr evidenc
-        comparison_level = read_aloud_comparison["level"]
-        comparison_note = read_aloud_comparison["note"]
-
-        # Keep acoustic clarity, but foreground read-aloud match.
-        main_note = comparison_note
-        level = comparison_level
-        if comparison_note not in notes:
-            notes.insert(0, comparison_note)
 
     return {
         "clarity_level": level,
         "note": main_note,
         "details": notes,
-        "read_aloud_comparison": read_aloud_comparison,
-    }
 
+        "read_aloud_comparison": {
+            "available": False,
+            "similarity": None,
+            "level": "N/A",
+            "words_to_practise": [],
+            "missing_keywords": [],
+            "note": "Read-aloud comparison was not run for this mode.",
+        },
+    }
 
 def _generate_transcript_feedback(
     filler_words: dict,
@@ -456,26 +382,26 @@ def _generate_transcript_feedback(
     filler_level = filler_words.get("level", "Good")
 
     if filler_total == 0:
-        feedback.append("You used very few filler words.")
+        feedback.append("You used very few possible filler words.")
     elif filler_level == "Good":
-        feedback.append("You only used a few filler words. Try to replace fillers with brief pauses.")
+        feedback.append("You only used a few possible filler words. For added clarity, replace fillers with brief pauses when needed.")
     elif filler_level == "Moderate":
-        feedback.append("Some possible filler words were found. Try pausing briefly instead and plan your thoughts ahead.")
+        feedback.append("Some possible filler words were found. Try replacing them with brief pauses and plan your thoughts ahead.")
     else:
-        feedback.append("Many possible filler words were found. Try pausing briefly instead. Planning your main points first may help you speak more smoothly.")
+        feedback.append("Many possible filler words were found. Plan your main points ahead of time and try replacing fillers with brief pauses to gather your thoughts.")
 
     lexical_level = word_use.get("lexical_density_level", "N/A")
     if lexical_level == "Limited":
-        feedback.append("Your vocabulary use is quite basic. Try to learn and use more diverse words so you can express yourself more effectively.")
+        feedback.append("Your word choice could be more diverse. Explore a wider range of words to express yourself better.")
     elif lexical_level == "Moderate":
-        feedback.append("Your word choice was clear, with some room for more variety to better express your ideas.")
+        feedback.append("Your word choice was clear, with room for more varied vocabulary to better express your ideas.")
     elif lexical_level == "Rich":
         feedback.append("Your word choice was varied and meaningful. That's great for expressing yourself effectively.")
 
     if grammar.get("issue_count", 0) > 0:
         feedback.extend(grammar.get("notes", [])[:2])
     else:
-        feedback.append("Your grammar appears good. No major issues were detected in the transcript.")
+        feedback.append("No major grammar issues were detected.")
 
     feedback.append(pronunciation.get("note", ""))
 
@@ -485,12 +411,19 @@ def _generate_transcript_feedback(
 def analyze(
     audio_path: str,
     acoustic_features: Optional[dict] = None,
-    expected_text: Optional[str] = None,
 ) -> dict:
+    
     """
-    Full Pipeline C analysis.
-    expected_text is reserved for future read-aloud/prompt comparison.
+    Pipeline C analysis:
+    - ASR transcript
+    - filler words
+    - lexical density / word use
+    - basic grammar indicators
+    - general pronunciation / clarity proxy
+
+    Read-aloud passage comparison is handled by Pipeline D.
     """
+
     asr = transcribe_audio(audio_path)
     transcript = asr["transcript"]
 
@@ -500,7 +433,6 @@ def analyze(
     pronunciation = analyse_pronunciation_proxy(
         transcript,
         acoustic_features=acoustic_features,
-        expected_text=expected_text,
     )
 
     feedback = _generate_transcript_feedback(

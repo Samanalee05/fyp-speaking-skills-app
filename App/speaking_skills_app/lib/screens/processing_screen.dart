@@ -12,12 +12,14 @@ class ProcessingScreen extends StatefulWidget {
   final String audioPath;
   final String mode;
   final String? expectedText;
+  final String? passageId;
 
   const ProcessingScreen({
     super.key,
     required this.audioPath,
     required this.mode,
     this.expectedText,
+    this.passageId,
   });
 
   @override
@@ -51,8 +53,9 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
       final request = http.MultipartRequest(
         'POST',
         Uri.parse(
-          '$backendBaseUrl/analyze?mode=${widget.mode}'
-          '${widget.expectedText != null ? '&expected_text=${Uri.encodeComponent(widget.expectedText!)}' : ''}',
+          '$backendBaseUrl/analyze?mode=${Uri.encodeComponent(widget.mode)}'
+          '${widget.expectedText != null ? '&expected_text=${Uri.encodeComponent(widget.expectedText!)}' : ''}'
+          '${widget.passageId != null ? '&passage_id=${Uri.encodeComponent(widget.passageId!)}' : ''}',
         ),
       );
       request.files.add(await http.MultipartFile.fromPath(
