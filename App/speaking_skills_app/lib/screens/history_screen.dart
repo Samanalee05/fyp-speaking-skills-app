@@ -29,7 +29,15 @@ class HistoryScreen extends StatelessWidget {
   }
 
   String _modeLabel(String mode) {
-    return mode == 'public_speaking' ? 'Public Speaking' : 'Academic';
+    switch (mode) {
+      case 'public_speaking':
+        return 'Public Speaking';
+      case 'read_aloud':
+        return 'Read Aloud';
+      case 'academic':
+      default:
+        return 'Academic';
+    }
   }
 
   @override

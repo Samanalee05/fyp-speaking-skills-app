@@ -577,16 +577,18 @@ class _PassageSelectorSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.of(context).size.height * 0.75;
+
     return Container(
+      constraints: BoxConstraints(maxHeight: maxHeight),
       decoration: const BoxDecoration(
         color: Color(0xFFF8FAFC),
         borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
       ),
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
       child: SafeArea(
         top: false,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
@@ -606,13 +608,17 @@ class _PassageSelectorSheet extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            ...passages.map(
-              (passage) {
-                final selected = passage.id == selectedPassage.id;
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: InkWell(
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.only(bottom: 12),
+                itemCount: passages.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final passage = passages[index];
+                  final selected = passage.id == selectedPassage.id;
+
+                  return InkWell(
                     borderRadius: BorderRadius.circular(16),
                     onTap: () => Navigator.pop(context, passage),
                     child: Container(
@@ -625,35 +631,53 @@ class _PassageSelectorSheet extends StatelessWidget {
                           color: selected
                               ? const Color(0xFF2E75B6)
                               : const Color(0xFFE2E8F0),
+                          width: selected ? 1.6 : 1,
                         ),
                       ),
-                      child: Column(
+                      child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            passage.title,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
-                            ),
+                          Icon(
+                            selected
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_off,
+                            color: selected
+                                ? const Color(0xFF2E75B6)
+                                : const Color(0xFF94A3B8),
+                            size: 20,
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            passage.text,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              height: 1.35,
-                              color: Color(0xFF475569),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  passage.title,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  passage.text,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    height: 1.35,
+                                    color: Color(0xFF475569),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ],
         ),

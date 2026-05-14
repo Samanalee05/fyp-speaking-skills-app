@@ -243,6 +243,8 @@ class _OverallLevelCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final level = assessment['overall_level'] as String? ?? 'Medium';
     final mode = modeOverride ?? assessment['mode'] as String? ?? 'academic';
+    final overallScore = ((assessment['overall_score'] ?? 0.0) as num).toDouble();
+    final score100 = ((overallScore / 3.0) * 100).round().clamp(0, 100);
 
     return Card(
       elevation: 3,
@@ -260,6 +262,15 @@ class _OverallLevelCard extends StatelessWidget {
                 fontSize: 48,
                 fontWeight: FontWeight.bold,
                 color: _levelColor(level),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$score100 / 100',
+              style: TextStyle(
+                color: _levelColor(level),
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
               ),
             ),
             const SizedBox(height: 4),
@@ -962,10 +973,9 @@ class _ReadAloudComparisonBox extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
-              estimatedErrorRatio is num
-                  ? 'Pronunciation quality: $pronunciationLevel '
-                      '(${(estimatedErrorRatio * 100).toStringAsFixed(1)}% estimated unclear speech).'
-                  : 'Pronunciation quality: $pronunciationLevel.',
+              pronunciationLevel == 'Good'
+                ? 'Pronunciation quality: Good. Your reading was clear overall.'
+                : 'Pronunciation quality: $pronunciationLevel. Practise the listed words for clearer reading.',
               style: const TextStyle(
                 fontSize: 12,
                 color: Color(0xFF334155),
@@ -1017,7 +1027,7 @@ class _ReadAloudComparisonBox extends StatelessWidget {
           if (wordFeedback.isNotEmpty) ...[
             const SizedBox(height: 12),
             const Text(
-              'Words not clearly recognised',
+              'Word differences',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
@@ -1094,8 +1104,8 @@ class _ReadAloudComparisonBox extends StatelessWidget {
 
           const SizedBox(height: 8),
           const Text(
-            'Reading accuracy checks the recognised transcript against the selected passage. '
-            'Pronunciation quality is estimated using a trained L2-ARCTIC phone-error model.',
+            'Reading accuracy shows how closely your speech matched the selected passage. '
+            'Pronunciation quality estimates how clearly the words were spoken.',
             style: TextStyle(
               fontSize: 11,
               color: Color(0xFF64748B),

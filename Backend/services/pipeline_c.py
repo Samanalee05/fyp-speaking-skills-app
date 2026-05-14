@@ -177,21 +177,85 @@ def transcribe_audio(audio_path: str) -> dict:
         "avg_logprob": avg_logprob,
     }
 
-
 def detect_filler_words(transcript: str) -> dict:
+    """
+    Detect possible spoken filler words from ASR transcript.
+
+    This is intentionally conservative:
+    - um / uh / erm are always treated as fillers when transcribed
+    - like and so are only counted in likely filler/discourse-marker contexts
+    """
     text = _normalise_text(transcript)
     words = _tokenize_words(text)
     word_count = max(len(words), 1)
 
     items = {}
-    total = 0
 
-    for label, pattern in FILLER_PATTERNS.items():
-        count = len(re.findall(pattern, text))
+    def _add(label: str, count: int):
         if count > 0:
-            items[label] = count
-            total += count
+            items[label] = items.get(label, 0) + count
 
+    # Strong filler indicators.
+    _add("um", len(re.findall(r"\bum+\b", text)))
+    _add("uh", len(re.findall(r"\buh+\b", text)))
+    _add("erm", len(re.findall(r"\berm+\b|\ber+\b", text)))
+    _add("you know", len(re.findall(r"\byou know\b", text)))
+    _add("actually", len(re.findall(r"\bactually\b", text)))
+    _add("basically", len(re.findall(r"\bbasically\b", text)))
+
+    # Context-aware "like".
+    like_count = 0
+    for i, word in enumerate(words):
+        if word != "like":
+            continue
+
+        prev_word = words[i - 1] if i > 0 else ""
+        next_word = words[i + 1] if i + 1 < len(words) else ""
+
+        # Do not count common normal uses.
+        if prev_word in {"i", "we", "they", "people", "students", "would", "really"}:
+            continue
+        if prev_word in {"looks", "sounds", "feels", "seems"}:
+            continue
+        if next_word in {"to"}:
+            continue
+
+        # Count likely discourse/filler uses.
+        like_count += 1
+
+    _add("like", like_count)
+
+    # Context-aware "so".
+    so_count = 0
+    adjectives_after_so = {
+        "good", "bad", "difficult", "easy", "important", "clear", "clearly",
+        "fast", "slow", "much", "many", "well", "hard", "nice", "great",
+    }
+
+    for i, word in enumerate(words):
+        if word != "so":
+            continue
+
+        next_word = words[i + 1] if i + 1 < len(words) else ""
+
+        # Do not count "so + adjective/adverb" uses.
+        if next_word in adjectives_after_so:
+            continue
+
+        # Count sentence-start or connector-like "so".
+        if i == 0:
+            so_count += 1
+            continue
+
+        prev_word = words[i - 1]
+        if prev_word in {"and", "but", "because"}:
+            so_count += 1
+            continue
+
+        # Otherwise, keep it conservative and do not count.
+    _add("so", so_count)
+
+    total = int(sum(items.values()))
     per_100_words = round((total / word_count) * 100, 2)
 
     if per_100_words <= 2:
@@ -207,7 +271,6 @@ def detect_filler_words(transcript: str) -> dict:
         "per_100_words": per_100_words,
         "level": level,
     }
-
 
 def analyse_word_use(transcript: str) -> dict:
     words = _tokenize_words(transcript)
@@ -288,11 +351,35 @@ def analyse_grammar_basic(transcript: str) -> dict:
     if connector_counts:
         notes.append("Some linking words were repeated often. Try using a wider range of connectors.")
 
+    # Common learner grammar patterns.
+    grammar_patterns = {
+        r"\bi am go\b": "Possible verb form issue detected: 'I am go'. Try 'I am going' or 'I go', depending on meaning.",
+        r"\bi am eat\b": "Possible verb form issue detected: 'I am eat'. Try 'I am eating' or 'I eat'.",
+        r"\bi am went\b": "Possible verb form issue detected: 'I am went'. Try 'I went'.",
+        r"\bhe go\b": "Possible subject-verb agreement issue detected: 'he go'. Try 'he goes'.",
+        r"\bshe go\b": "Possible subject-verb agreement issue detected: 'she go'. Try 'she goes'.",
+        r"\bit go\b": "Possible subject-verb agreement issue detected: 'it go'. Try 'it goes'.",
+        r"\bthey goes\b": "Possible subject-verb agreement issue detected: 'they goes'. Try 'they go'.",
+        r"\bmore better\b": "Avoid 'more better'. Use 'better'.",
+        r"\bis easily to\b": "Possible grammar issue detected: 'is easily to'. Try 'is easy to'.",
+        r"\bare easily to\b": "Possible grammar issue detected: 'are easily to'. Try 'are easy to'.",
+        r"\byesterday i go\b": "Possible tense issue detected. For past time, use 'I went'.",
+    }
+
+    grammar_rule_hits = []
+    for pattern, message in grammar_patterns.items():
+        if re.search(pattern, text):
+            grammar_rule_hits.append(message)
+
+    if grammar_rule_hits:
+        notes.extend(grammar_rule_hits[:3])
+        
     return {
         "issue_count": len(notes),
         "notes": notes,
         "repeated_adjacent_words": sorted(set(repeated_adjacent))[:5],
         "connector_repetition": connector_counts,
+        "rule_hits": grammar_rule_hits if 'grammar_rule_hits' in locals() else [],
     }
 
 def analyse_pronunciation_proxy(
@@ -394,12 +481,12 @@ def _generate_transcript_feedback(
     if lexical_level == "Limited":
         feedback.append("Your word choice could be more diverse. Explore a wider range of words to express yourself better.")
     elif lexical_level == "Moderate":
-        feedback.append("Your word choice was clear, with room for more varied vocabulary to better express your ideas.")
+        feedback.append("Your word choice was clear, with room for more varied vocabulary.")
     elif lexical_level == "Rich":
-        feedback.append("Your word choice was varied and meaningful. That's great for expressing yourself effectively.")
+        feedback.append("Your word choice was varied and meaningful.")
 
     if grammar.get("issue_count", 0) > 0:
-        feedback.extend(grammar.get("notes", [])[:2])
+        feedback.extend(grammar.get("notes", [])[:3])
     else:
         feedback.append("No major grammar issues were detected.")
 

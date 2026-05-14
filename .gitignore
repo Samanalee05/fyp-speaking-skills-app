@@ -226,4 +226,3 @@ __pycache__/
 .env
 
 
-Backend/models/pronunciation_phone_error_rf.pkl
